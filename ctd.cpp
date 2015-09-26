@@ -28,8 +28,13 @@ namespace ctd {
         inline double operator()(double x) const {
             return value(x);
         }
-        template <class output_type = expr_wrapper<
-            multiply<expr_wrapper<constant>,expr_wrapper<SubExpr>>>>
+        template <class output_type = 
+            expr_wrapper<
+                multiply<
+                    expr_wrapper<constant>, expr_wrapper<SubExpr>
+                >
+            >
+        >
         inline output_type operator-() const;
     };
     
@@ -283,6 +288,33 @@ namespace ctd {
         return expr_wrapper<constant>{c} + se;
     }
     
+    // expr - expr
+    template<class SubExprA, class SubExprB>
+    auto operator-(
+        const expr_wrapper<SubExprA> &sea,
+        const expr_wrapper<SubExprB> &seb
+    )
+    -> decltype(sea + (-seb))
+    {
+        return sea + (-seb);
+    }
+    
+    // const - expr
+    template<class SubExpr>
+    auto operator-(const constant &c, const expr_wrapper<SubExpr> &se)
+    -> decltype(expr_wrapper<constant>{c} - se)
+    {
+        return expr_wrapper<constant>{c} - se;
+    }
+    
+    // expr - const --> -expr + const
+    template<class SubExpr>
+    auto operator-(const expr_wrapper<SubExpr> &se, const constant &c)
+    -> decltype(se - expr_wrapper<constant>{c})
+    {
+        return se - expr_wrapper<constant>{c};
+    }
+    
     // expr * expr
     template<
         class SubExprA, class SubExprB,
@@ -296,7 +328,7 @@ namespace ctd {
     ){
         return expr_wrapper<multiply_inst>{multiply_inst{sea, seb}};
     }
-    
+
     // const * expr
     template<class SubExpr>
     auto operator*(const constant &c, const expr_wrapper<SubExpr> &se)
@@ -313,6 +345,36 @@ namespace ctd {
         return expr_wrapper<constant>{c} * se;
     }
     
+    // expr / expr
+    template<
+        class SubExprA, class SubExprB,
+        /*alias*/ class divide_inst = divide<
+            expr_wrapper<SubExprA>, expr_wrapper<SubExprB>
+        >
+    >
+    expr_wrapper<divide_inst> operator/(
+        const expr_wrapper<SubExprA> &sea, 
+        const expr_wrapper<SubExprB> &seb
+    ){
+        return expr_wrapper<divide_inst>{divide_inst{sea, seb}};
+    }
+    
+    // const / expr
+    template<class SubExpr>
+    auto operator/(const constant &c, const expr_wrapper<SubExpr> &se)
+    -> decltype(expr_wrapper<constant>{c} / se)
+    {
+        return expr_wrapper<constant>{c} / se;
+    }
+    
+    // expr / const 
+    template<class SubExpr>
+    auto operator/(const expr_wrapper<SubExpr> &se, const constant &c)
+    -> decltype(expr_wrapper<constant>{c} / se)
+    {
+        return expr_wrapper<constant>{c} / se;
+    }
+    
     // expr ^ expr
     template<
         class SubExprA, 
@@ -327,6 +389,22 @@ namespace ctd {
         const expr_wrapper<SubExprB> &seb
     ){
         return expr_wrapper<exponential_inst>{exponential_inst{sea, seb}};
+    }
+    
+    // const ^ expr
+    template<class SubExpr>
+    auto operator^(const constant &c, const expr_wrapper<SubExpr> &se)
+    -> decltype(expr_wrapper<constant>{c} ^ se)
+    {
+        return expr_wrapper<constant>{c} ^ se;
+    }
+    
+    // expr ^ const 
+    template<class SubExpr>
+    auto operator^(const expr_wrapper<SubExpr> &se, const constant &c)
+    -> decltype(expr_wrapper<constant>{c} ^ se)
+    {
+        return expr_wrapper<constant>{c} ^ se;
     }
     
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -367,7 +445,9 @@ namespace ctd {
 int main(int argc, char** argv) {
     using namespace ctd;
     // https://en.wikipedia.org/wiki/Differentiation_rules#Derivatives_of_trigonometric_functions
-    auto f = log(x*x);
+    
+    // demo expression: (this fails, need to debug)
+    auto f = 3 + x + 3*x - (3^x) + sin(cos(x^3)) + log(x/((x-3)^3));
     auto fd = f*(dx/dt);
     std::cout.precision(30);
     std::cout << std::fixed << f(5.0) << "\n" << fd(5.0) << std::endl;
