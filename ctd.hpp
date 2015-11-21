@@ -1,5 +1,9 @@
-#include <iostream>
-#include <cmath>
+#pragma once
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+// http://stackoverflow.com/questions/10526950/symbolic-differentiation-using-expression-templates-in-c
+// // https://en.wikipedia.org/wiki/Differentiation_rules#Derivatives_of_trigonometric_functions
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 namespace ctd {
 	
@@ -16,18 +20,29 @@ namespace ctd {
 	
 	template <class SubExpr>
 	struct expr_wrapper {
+		
 		const SubExpr se;
+		
 		expr_wrapper(): se{SubExpr{}} {}
 		expr_wrapper(const SubExpr &se): se{se} {}
-		inline double value(double x) const {
-			return se.value(x);
+		
+		// get value under this wrapper
+		inline double value(int id, double x) const {
+			return se.value(x, id);
 		}
-		inline double diff(double x) const {
-			return se.diff(x);
+		
+		// differentiate expression tree under this wrapper
+		inline double diff(int id, double x) const {
+			return se.diff(id, x);
 		}
-		inline double operator()(double x) const {
-			return value(x);
+		
+		// fancy operator for this->value
+		inline double operator()(int id, double x) const {
+			return value(id, x);
 		}
+		
+		// prefix negative sign must be in class scope
+		/*
 		template <class output_type = 
 			expr_wrapper<
 				multiply<
@@ -36,32 +51,62 @@ namespace ctd {
 			>
 		>
 		inline output_type operator-() const;
+		*/
 	};
 	
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	// constant class - actual literals in expression tree
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
 	struct constant {
-		const double __value;
-		constant(double value): __value{value} {}
-		inline double value(double) const {
-			return __value;
+		
+		const double data;
+		
+		constant(double value): data{value} {}
+		
+		inline double value(int, double) const {
+			return data;
 		}
-		inline double diff(double) const {
+		
+		inline double diff(int, double) const {
 			return 0.0;
 		}
 	};
 	
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	// unknown - symbolic variables
+	// hopefully ID and Value are template variables 
+	// so ternary is also compile time
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	template <int ID, int Value>
 	struct unknown {
-		inline double value(double x) const {
-			return x;
+		
+		double value(int in_id, double x) const {
+			return in_id == ID ? x : Value;
 		}
-		inline double diff(double) const {
-			return 1.0;
+		
+		double diff(int in_id, double) const {
+			return in_id == ID ? 1.0 : 0.0;
 		}
+	};
+	
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	// symbol class
+	// ID: identity of symbolic variable
+	// Value: constant value for partial derivative
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	template <int ID = 0>
+	struct symbol {
+		template <int Value = 0>
+		using value = expr_wrapper<unknown<ID, Value>>;
 	};
 
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Function
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	
+	/*
 	// sin(f(x))
 	template <class SubExpr>
 	struct func_sin {
@@ -77,7 +122,7 @@ namespace ctd {
 	
 	template <
 		typename SubExpr, 
-		/*alias*/ typename output_type = 
+		typename output_type = 
 			expr_wrapper<func_sin<expr_wrapper<SubExpr>>>
 	>
 	inline output_type
@@ -109,7 +154,7 @@ namespace ctd {
 	
 	template <
 		typename SubExpr, 
-		/*alias*/ typename output_type = 
+		typename output_type = 
 			expr_wrapper<func_cos<expr_wrapper<SubExpr>>>
 	>
 	inline output_type
@@ -141,7 +186,7 @@ namespace ctd {
 	
 	template <
 		typename SubExpr, 
-		/*alias*/ typename output_type = 
+		typename output_type = 
 			expr_wrapper<func_log<expr_wrapper<SubExpr>>>
 	>
 	inline output_type
@@ -157,7 +202,7 @@ namespace ctd {
 	inline auto log(int a) -> decltype(log(static_cast<double>(a))) {
 		return log(static_cast<double>(a));
 	}
-	
+	*/
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Operator logic
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -165,8 +210,10 @@ namespace ctd {
 	// binary operator base class
 	template <class OperandA, class OperandB>
 	struct binary_operator {
+		
 		const OperandA a;
 		const OperandB b;
+		
 		binary_operator(const OperandA &a, const OperandB &b)
 		: a{a}, b{b} {}
 	};
@@ -178,15 +225,18 @@ namespace ctd {
 		class bin_op_inst = binary_operator<OperandA, OperandB>
 	>
 	struct add: binary_operator<OperandA, OperandB> {
+		
 		add(const OperandA &a, const OperandB &b): bin_op_inst(a, b) {}
-		inline double value(double x) const {
-			return bin_op_inst::a.value(x) + bin_op_inst::b.value(x);
+		
+		inline double value(int id, double x) const {
+			return bin_op_inst::a.value(id, x) + bin_op_inst::b.value(id, x);
 		}
-		inline double diff(double x) const {
-			return bin_op_inst::a.diff(x) + bin_op_inst::b.diff(x);
+		
+		inline double diff(int id, double x) const {
+			return bin_op_inst::a.diff(id, x) + bin_op_inst::b.diff(id, x);
 		}
 	};
-	
+	/*
 	// multiply
 	template <
 		class OperandA, 
@@ -227,7 +277,7 @@ namespace ctd {
 	// exponential
 	template <
 		class Base, class Exponent, 
-		/*alias*/ class bin_op_inst = binary_operator<Base, Exponent>
+		class bin_op_inst = binary_operator<Base, Exponent>
 	>
 	struct exponential : bin_op_inst {
 		exponential(const Base &a, const Exponent &b)
@@ -244,23 +294,23 @@ namespace ctd {
 			);
 		}
 	};
-	
+	*/
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Operator syntax
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	
+	/*
 	// -expr
 	template <class SubExpr>
-	template </*alias*/ class output_type>
+	template <class output_type>
 	inline output_type expr_wrapper<SubExpr>::operator-() const {
 		return (-1) * (*this);
 	}
-	
+	*/
 	// expr + expr
 	template<
 		class SubExprA, 
 		class SubExprB, 
-		/*alias*/ class add_inst = add<
+		class add_inst = add<
 			expr_wrapper<SubExprA>, 
 			expr_wrapper<SubExprB>
 		>
@@ -271,7 +321,7 @@ namespace ctd {
 	){
 		return expr_wrapper<add_inst>{add_inst{sea, seb}};
 	}
-	
+	/*
 	// const + expr
 	template<class SubExpr>
 	inline auto operator+(const constant &c, const expr_wrapper<SubExpr> &se)
@@ -307,7 +357,7 @@ namespace ctd {
 		return expr_wrapper<constant>{c} - se;
 	}
 	
-	// expr - const --> -expr + const
+	// expr - const
 	template<class SubExpr>
 	inline auto operator-(const expr_wrapper<SubExpr> &se, const constant &c)
 	-> decltype(se - expr_wrapper<constant>{c})
@@ -318,7 +368,7 @@ namespace ctd {
 	// expr * expr
 	template<
 		class SubExprA, class SubExprB,
-		/*alias*/ class multiply_inst = multiply<
+		class multiply_inst = multiply<
 			expr_wrapper<SubExprA>, expr_wrapper<SubExprB>
 		>
 	>
@@ -348,7 +398,7 @@ namespace ctd {
 	// expr / expr
 	template<
 		class SubExprA, class SubExprB,
-		/*alias*/ class divide_inst = divide<
+		class divide_inst = divide<
 			expr_wrapper<SubExprA>, expr_wrapper<SubExprB>
 		>
 	>
@@ -379,7 +429,7 @@ namespace ctd {
 	template<
 		class SubExprA, 
 		class SubExprB, 
-		/*alias*/ class exponential_inst = exponential<
+		class exponential_inst = exponential<
 			expr_wrapper<SubExprA>, 
 			expr_wrapper<SubExprB>
 		>
@@ -406,11 +456,12 @@ namespace ctd {
 	{
 		return se ^ expr_wrapper<constant>{c};
 	}
-	
+	*/
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Syntactic sugar evaluation
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	
+	/*
 	template <class SubExpr>
 	struct diff_wrapper : expr_wrapper<SubExpr> {
 		diff_wrapper(const expr_wrapper<SubExpr> &cpy)
@@ -433,28 +484,12 @@ namespace ctd {
 	operator*(const expr_wrapper<SubExpr> &sea, const sdxdt&){
 		return diff_wrapper<SubExpr>{sea};
 	}
-
+	*/
+	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Predefined expression types
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	
-	expr_wrapper<unknown> x;
+	//expr_wrapper<unknown> x;
 	
-}
-
-#include <cxxabi.h>
-
-int main(int argc, char** argv) {
-	using namespace ctd;
-	// https://en.wikipedia.org/wiki/Differentiation_rules#Derivatives_of_trigonometric_functions
-	
-	// demo expression: (this fails, need to debug)
-	auto f = 3 + x + 3*x - (3^x) + sin(cos(x^3)) + log(x/((x-3)^3));
-	auto fd = f*(dx/dt);
-	std::cout.precision(30);
-	std::cout << std::fixed << f(5.0) << std::endl;
-	std::cout << std::fixed << fd(5.0) << std::endl;
-	/*std::cout << "expression template tree: " << std::endl;
-	std::cout <<  abi::__cxa_demangle(typeid(f).name(), 0, 0, NULL);*/
-	return 0;
 }
