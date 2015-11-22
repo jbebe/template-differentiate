@@ -17,15 +17,15 @@ int main(int argc, char** argv) {
 	auto z = symbol<3>::value<12>{};
 	
 	// define function (cannot be constant because of the auto keyword)
-    auto f = x + y + z;
+    auto f = x + x + x + y + z;
 	
 	// create a shorthand for the derivative (wrapper)
-    auto fd = [&f](int id, double d){ return f.diff(id, d); };
+    //auto fd = [&f](int id, double d){ return f.diff(id, d); };
     
 	// print out the tree and then the partial derivative
 	std::cout.precision(30);
-    std::cout << std::fixed << f(0, 0) << std::endl;
-    std::cout << std::fixed << fd(1, 5.0) << std::endl;
+    std::cout << std::fixed << f.value(0, 0) << std::endl;
+    std::cout << std::fixed << f.diff(1, 5.0) << std::endl;
 	
 	// get the expression template tree
     std::cout << "expression tree: " << std::endl;

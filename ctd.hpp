@@ -11,14 +11,14 @@ namespace ctd {
 	// Must-have forward declarations
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	
-	struct constant;
-	template<class, class> struct multiply;
+	/*struct constant;
+	template<class, class> struct multiply;*/
 	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	// Expression Wrapper class
+	// Expression Wrapper class - i think we dont need this anymore
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	
-	template <class SubExpr>
+	/*template <class SubExpr>
 	struct expr_wrapper {
 		
 		const SubExpr se;
@@ -42,7 +42,7 @@ namespace ctd {
 		}
 		
 		// prefix negative sign must be in class scope
-		/*
+		
 		template <class output_type = 
 			expr_wrapper<
 				multiply<
@@ -51,8 +51,8 @@ namespace ctd {
 			>
 		>
 		inline output_type operator-() const;
-		*/
-	};
+		
+	};*/
 	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// constant class - actual literals in expression tree
@@ -62,13 +62,15 @@ namespace ctd {
 		
 		const double data;
 		
-		constant(double value): data{value} {}
+		constant(double value): 
+			data{value} 
+		{}
 		
-		inline double value(int, double) const {
+		double value(int, double) const {
 			return data;
 		}
 		
-		inline double diff(int, double) const {
+		double diff(int, double) const {
 			return 0.0;
 		}
 	};
@@ -99,8 +101,9 @@ namespace ctd {
 	
 	template <int ID = 0>
 	struct symbol {
+		
 		template <int Value = 0>
-		using value = expr_wrapper<unknown<ID, Value>>;
+		using value = unknown<ID, Value>;
 	};
 
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -208,34 +211,43 @@ namespace ctd {
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	
 	// binary operator base class
-	template <class OperandA, class OperandB>
+	// OperandA and OperandB should be declared only once: base class
+	template <
+		class OperandA, 
+		class OperandB
+	>
 	struct binary_operator {
 		
 		const OperandA a;
 		const OperandB b;
 		
-		binary_operator(const OperandA &a, const OperandB &b)
-		: a{a}, b{b} {}
+		binary_operator(const OperandA a, const OperandB b): 
+			a{a}, b{b} 
+		{}
 	};
 	
 	// add
 	template <
 		class OperandA, 
-		class OperandB,
-		class bin_op_inst = binary_operator<OperandA, OperandB>
+		class OperandB
 	>
-	struct add: binary_operator<OperandA, OperandB> {
+	struct add: public binary_operator<OperandA, OperandB> {
 		
-		add(const OperandA &a, const OperandB &b): bin_op_inst(a, b) {}
+		using bin_op_inst = binary_operator<OperandA, OperandB>;
 		
-		inline double value(int id, double x) const {
+		add(const OperandA a, const OperandB b): 
+			bin_op_inst(a, b) 
+		{}
+		
+		double value(int id, double x) const {
 			return bin_op_inst::a.value(id, x) + bin_op_inst::b.value(id, x);
 		}
 		
-		inline double diff(int id, double x) const {
+		double diff(int id, double x) const {
 			return bin_op_inst::a.diff(id, x) + bin_op_inst::b.diff(id, x);
 		}
 	};
+	
 	/*
 	// multiply
 	template <
@@ -310,16 +322,13 @@ namespace ctd {
 	template<
 		class SubExprA, 
 		class SubExprB, 
-		class add_inst = add<
-			expr_wrapper<SubExprA>, 
-			expr_wrapper<SubExprB>
-		>
+		class add_inst = add<SubExprA, SubExprB>
 	>
-	inline expr_wrapper<add_inst> operator+(
-		const expr_wrapper<SubExprA> &sea,
-		const expr_wrapper<SubExprB> &seb
+	add_inst operator+(
+		const SubExprA sea,
+		const SubExprB seb
 	){
-		return expr_wrapper<add_inst>{add_inst{sea, seb}};
+		return add_inst{sea, seb};
 	}
 	/*
 	// const + expr
