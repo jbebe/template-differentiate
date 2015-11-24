@@ -8,51 +8,10 @@
 namespace ctd {
 	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	// Must-have forward declarations
+	// Negatable - workaround tp make any number negative
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	
-	/*struct constant;
-	template<class, class> struct multiply;*/
-	
-	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	// Expression Wrapper class - i think we dont need this anymore
-	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	
-	/*template <class SubExpr>
-	struct expr_wrapper {
-		
-		const SubExpr se;
-		
-		expr_wrapper(): se{SubExpr{}} {}
-		expr_wrapper(const SubExpr &se): se{se} {}
-		
-		// get value under this wrapper
-		inline double value(int id, double x) const {
-			return se.value(x, id);
-		}
-		
-		// differentiate expression tree under this wrapper
-		inline double diff(int id, double x) const {
-			return se.diff(id, x);
-		}
-		
-		// fancy operator for this->value
-		inline double operator()(int id, double x) const {
-			return value(id, x);
-		}
-		
-		// prefix negative sign must be in class scope
-		
-		template <class output_type = 
-			expr_wrapper<
-				multiply<
-					expr_wrapper<constant>, expr_wrapper<SubExpr>
-				>
-			>
-		>
-		inline output_type operator-() const;
-		
-	};*/
+	template <typename ChildType> struct negatable;
 	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// constant class - actual literals in expression tree
@@ -62,9 +21,8 @@ namespace ctd {
 		
 		const double data;
 		
-		constant(double value): 
-			data{value} 
-		{}
+		constant(double value): data{value} {}
+		constant(int value): data{static_cast<double>(value)} {}
 		
 		double value(int, double) const {
 			return data;
@@ -82,7 +40,7 @@ namespace ctd {
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	
 	template <int ID, int Value>
-	struct unknown {
+	struct unknown: public negatable<unknown<ID,Value>> {
 		
 		double value(int in_id, double x) const {
 			return in_id == ID ? x : Value;
@@ -109,39 +67,39 @@ namespace ctd {
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Function
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	/*
+	
 	// sin(f(x))
 	template <class SubExpr>
 	struct func_sin {
 		const SubExpr arg;
 		func_sin(const SubExpr arg): arg{arg} {}
-		inline double value(double x) const {
-			return std::sin(arg.value(x));
+		inline double value(int id, double x) const {
+			return std::sin(arg.value(id, x));
 		}
-		inline double diff(double x) const {
-			return std::cos(arg.value(x)) * arg.diff(x);
+		inline double diff(int id, double x) const {
+			return std::cos(arg.value(id, x)) * arg.diff(id, x);
 		}
 	};
 	
 	template <
 		typename SubExpr, 
-		typename output_type = 
-			expr_wrapper<func_sin<expr_wrapper<SubExpr>>>
+		typename output_type = func_sin<SubExpr>
 	>
-	inline output_type
-	sin(const expr_wrapper<SubExpr> &a){
-		return output_type{func_sin<expr_wrapper<SubExpr>>{a}};
+	output_type sin(const SubExpr a){
+		return func_sin<SubExpr>{a};
 	}
 	
-	inline expr_wrapper<func_sin<constant>> sin(double a){
-		return expr_wrapper<func_sin<constant>>
-			{func_sin<constant>{constant{a}}};
+	func_sin<constant> sin(double a){
+		return func_sin<constant>{constant{a}};
 	}
 	
-	inline auto sin(int a) -> decltype(sin(static_cast<double>(a))) {
+	auto sin(int a) 
+	-> decltype(sin(static_cast<double>(a))) 
+	{
 		return sin(static_cast<double>(a));
 	}
 	
+	/*
 	// cos(f(x))
 	template <class SubExpr>
 	struct func_cos {
@@ -231,7 +189,7 @@ namespace ctd {
 		class OperandA, 
 		class OperandB
 	>
-	struct add: public binary_operator<OperandA, OperandB> {
+	struct add: public binary_operator<OperandA, OperandB>, public negatable<add<OperandA, OperandB>> {
 		
 		using bin_op_inst = binary_operator<OperandA, OperandB>;
 		
@@ -248,25 +206,30 @@ namespace ctd {
 		}
 	};
 	
-	/*
+	
 	// multiply
 	template <
 		class OperandA, 
 		class OperandB
 	>
-	struct multiply: binary_operator<OperandA, OperandB> {
+	struct multiply: public binary_operator<OperandA, OperandB>, public negatable<multiply<OperandA, OperandB>> {
+		
 		using bin_op_inst = binary_operator<OperandA, OperandB>;
-		multiply(const OperandA &a, const OperandB &b)
-		: bin_op_inst(a, b) {}
-		inline double value(double x) const {
-			return bin_op_inst::a.value(x) * bin_op_inst::b.value(x);
+		
+		multiply(const OperandA a, const OperandB b): 
+			bin_op_inst(a, b) 
+		{}
+		
+		double value(int id, double x) const {
+			return bin_op_inst::a.value(id, x) * bin_op_inst::b.value(id, x);
 		}
-		inline double diff(double x) const {
-			return bin_op_inst::a.diff(x) * bin_op_inst::b.value(x) 
-				+ bin_op_inst::a.value(x) * bin_op_inst::b.diff(x);
+		
+		double diff(int id, double x) const {
+			return bin_op_inst::a.diff(id, x) * bin_op_inst::b.value(id, x) 
+				+ bin_op_inst::a.value(id, x) * bin_op_inst::b.diff(id, x);
 		}
 	};
-	
+	/*
 	// divide
 	template <
 		class OperandA, 
@@ -307,38 +270,49 @@ namespace ctd {
 		}
 	};
 	*/
+	
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	// Unary negation sign - must be declared after operator logic section
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	template <typename ChildType>
+	struct negatable {
+		multiply<constant, ChildType> operator-() const;
+	};
+	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Operator syntax
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	/*
+	
 	// -expr
-	template <class SubExpr>
-	template <class output_type>
-	inline output_type expr_wrapper<SubExpr>::operator-() const {
-		return (-1) * (*this);
-	}
-	*/
-	// expr + expr
-	template<
-		class SubExprA, 
-		class SubExprB, 
-		class add_inst = add<SubExprA, SubExprB>
-	>
-	add_inst operator+(
-		const SubExprA sea,
-		const SubExprB seb
-	){
-		return add_inst{sea, seb};
-	}
-	/*
-	// const + expr
-	template<class SubExpr>
-	inline auto operator+(const constant &c, const expr_wrapper<SubExpr> &se)
-	-> decltype(expr_wrapper<constant>{c} + se)
+	template <typename ChildType>
+	multiply<constant, ChildType> negatable<ChildType>::operator-() const
 	{
-		return expr_wrapper<constant>{c} + se;
+		return multiply<constant, ChildType>{-1, static_cast<const ChildType&>(*this)};
 	}
 	
+	// expr + expr
+	template<
+		class SubExprA,
+		class SubExprB,
+		class add_inst = add<SubExprA, SubExprB>,
+		typename std::enable_if<
+			!(std::is_pod<SubExprA>::value || std::is_pod<SubExprB>::value)
+		>::type* = nullptr
+	>
+	add_inst operator+(const SubExprA sea,const SubExprB seb){
+		return add_inst{sea, seb};
+	}
+	
+	// const + expr
+	template<class SubExpr>
+	auto operator+(const constant c, const SubExpr se) 
+	-> add<constant, SubExpr>
+	{
+		return add<constant, SubExpr>{c, se};
+	}
+	
+	/*
 	// expr + const
 	template<class SubExpr>
 	inline auto operator+(const expr_wrapper<SubExpr> &se, const constant &c)
@@ -373,29 +347,31 @@ namespace ctd {
 	{
 		return se - expr_wrapper<constant>{c};
 	}
-	
+	*/
 	// expr * expr
 	template<
-		class SubExprA, class SubExprB,
-		class multiply_inst = multiply<
-			expr_wrapper<SubExprA>, expr_wrapper<SubExprB>
-		>
+		class SubExprA,
+		class SubExprB,
+		class multiply_inst = multiply<SubExprA, SubExprB>,
+		typename std::enable_if<
+			std::is_class<SubExprA>::value && std::is_class<SubExprB>::value
+		>::type* = nullptr
 	>
-	inline expr_wrapper<multiply_inst> operator*(
-		const expr_wrapper<SubExprA> &sea, 
-		const expr_wrapper<SubExprB> &seb
+	inline multiply_inst operator*(
+		const SubExprA sea, 
+		const SubExprB seb
 	){
-		return expr_wrapper<multiply_inst>{multiply_inst{sea, seb}};
-	}
-
-	// const * expr
-	template<class SubExpr>
-	inline auto operator*(const constant &c, const expr_wrapper<SubExpr> &se)
-	-> decltype(expr_wrapper<constant>{c} * se)
-	{
-		return expr_wrapper<constant>{c} * se;
+		return multiply_inst{sea, seb};
 	}
 	
+	// const * expr
+	template<class SubExpr>
+	auto operator*(const constant c, const SubExpr se) 
+	-> multiply<constant, SubExpr>
+	{
+		return multiply<constant, SubExpr>{c, se};
+	}
+	/*
 	// expr * const 
 	template<class SubExpr>
 	inline auto operator*(const expr_wrapper<SubExpr> &se, const constant &c)
@@ -466,6 +442,7 @@ namespace ctd {
 		return se ^ expr_wrapper<constant>{c};
 	}
 	*/
+	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Syntactic sugar evaluation
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 

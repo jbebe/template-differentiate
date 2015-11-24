@@ -17,10 +17,7 @@ int main(int argc, char** argv) {
 	auto z = symbol<3>::value<12>{};
 	
 	// define function (cannot be constant because of the auto keyword)
-    auto f = x + x + x + y + z;
-	
-	// create a shorthand for the derivative (wrapper)
-    //auto fd = [&f](int id, double d){ return f.diff(id, d); };
+    auto f = x * -(3 * x + sin(x));
     
 	// print out the tree and then the partial derivative
 	std::cout.precision(30);
@@ -30,13 +27,13 @@ int main(int argc, char** argv) {
 	// get the expression template tree
     std::cout << "expression tree: " << std::endl;
     const char *type_ptr = abi::__cxa_demangle(typeid(f).name(), 0, 0, NULL);
-	
+	/*
 	// and print it out in a fancy form (implementation is ugly though)
 	std::string tab{"\n"};
 	bool indent_happened = false;
 	bool left_indent = false;
 	bool comma = false;
-    while (*type_ptr != '\0'){
+	while (*type_ptr != '\0'){
 		switch (*type_ptr){
 			case '<':
 				putchar('<');
@@ -68,7 +65,7 @@ int main(int argc, char** argv) {
 		}
 		type_ptr++;
 		
-	}
+	}*/
 	std::cout << type_ptr << std::endl;
 
     return 0;
