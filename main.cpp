@@ -12,12 +12,12 @@ int main(int argc, char** argv) {
 	using namespace ctd;
 	
 	// define symbolic variables 
-	auto x = symbol<1>::value<10>{};
-	auto y = symbol<2>::value<11>{};
-	auto z = symbol<3>::value<12>{};
+	auto x = symbol<1>::value{10};
+	auto y = symbol<2>::value{11};
+	auto z = symbol<3>::value{12};
 	
 	// define function (cannot be constant because of the auto keyword)
-    auto f = x * -(3 * x + sin(x));
+    auto f = 3 * x;
     
 	// print out the tree and then the partial derivative
 	std::cout.precision(30);

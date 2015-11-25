@@ -39,11 +39,15 @@ namespace ctd {
 	// so ternary is also compile time
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	
-	template <int ID, int Value>
-	struct unknown: public negatable<unknown<ID,Value>> {
+	template <int ID>
+	struct unknown: public negatable<unknown<ID>> {
+		
+		const double data;
+		
+		unknown(double data): data{data} {}
 		
 		double value(int in_id, double x) const {
-			return in_id == ID ? x : Value;
+			return in_id == ID ? x : data;
 		}
 		
 		double diff(int in_id, double) const {
@@ -59,9 +63,7 @@ namespace ctd {
 	
 	template <int ID = 0>
 	struct symbol {
-		
-		template <int Value = 0>
-		using value = unknown<ID, Value>;
+		using value = unknown<ID>;
 	};
 
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -224,11 +226,14 @@ namespace ctd {
 			return bin_op_inst::a.value(id, x) * bin_op_inst::b.value(id, x);
 		}
 		
+		// TODO: solve simplification. now it contains bug if we do so
+		template <typename = void>
 		double diff(int id, double x) const {
 			return bin_op_inst::a.diff(id, x) * bin_op_inst::b.value(id, x) 
 				+ bin_op_inst::a.value(id, x) * bin_op_inst::b.diff(id, x);
 		}
 	};
+		
 	/*
 	// divide
 	template <
@@ -279,6 +284,12 @@ namespace ctd {
 	struct negatable {
 		multiply<constant, ChildType> operator-() const;
 	};
+	
+	/*template <>
+	template <typename std::enable_if<false>::type* = nullptr>
+	double multiply<constant, unknown<1>>::diff(int id, double x) const {
+		return bin_op_inst::a.value(id, x);
+	}*/
 	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Operator syntax
