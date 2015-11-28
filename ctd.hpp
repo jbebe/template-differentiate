@@ -101,36 +101,36 @@ namespace ctd {
 		return sin(static_cast<double>(a));
 	}
 	
-	/*
 	// cos(f(x))
 	template <class SubExpr>
 	struct func_cos {
+
 		const SubExpr arg;
+
 		func_cos(const SubExpr arg): arg{arg} {}
-		inline double value(double x) const {
-			return std::cos(arg.value(x));
+
+		double value(int id, double x) const {
+			return std::cos(arg.value(id, x));
 		}
-		inline double diff(double x) const {
-			return (-std::sin(arg.value(x))) * arg.diff(x);
+
+		double diff(int id, double x) const {
+			return (-std::sin(arg.value(id, x))) * arg.diff(id, x);
 		}
 	};
 	
 	template <
 		typename SubExpr, 
-		typename output_type = 
-			expr_wrapper<func_cos<expr_wrapper<SubExpr>>>
+		typename output_type = func_cos<SubExpr>
 	>
-	inline output_type
-	cos(const expr_wrapper<SubExpr> &a){
-		return output_type{func_cos<expr_wrapper<SubExpr>>{a}};
+	output_type cos(const SubExpr a){
+		return output_type{a};
 	}
 	
-	inline expr_wrapper<func_cos<constant>> cos(double a){
-		return expr_wrapper<func_cos<constant>>
-			{func_cos<constant>{constant{a}}};
+	func_cos<constant> cos(double a){
+		return func_cos<constant>{func_cos<constant>{constant{a}}};
 	}
 	
-	inline auto cos(int a) -> decltype(cos(static_cast<double>(a))) {
+	auto cos(int a) -> decltype(cos(static_cast<double>(a))) {
 		return cos(static_cast<double>(a));
 	}
 
@@ -139,33 +139,30 @@ namespace ctd {
 	struct func_log {
 		const SubExpr arg;
 		func_log(const SubExpr arg): arg{arg} {}
-		inline double value(double x) const {
-			return std::log(arg.value(x));
+		double value(int id, double x) const {
+			return std::log(arg.value(id, x));
 		}
-		inline double diff(double x) const {
-			return arg.diff(x)/arg.value(x);
+		double diff(int id, double x) const {
+			return arg.diff(id, x)/arg.value(id, x);
 		}
 	};
 	
 	template <
 		typename SubExpr, 
-		typename output_type = 
-			expr_wrapper<func_log<expr_wrapper<SubExpr>>>
+		typename output_type = func_log<SubExpr>
 	>
-	inline output_type
-	log(const expr_wrapper<SubExpr> &a){
-		return output_type{func_log<expr_wrapper<SubExpr>>{a}};
+	output_type log(const SubExpr a){
+		return output_type{a};
 	}
 	
-	inline expr_wrapper<func_log<constant>> log(double a){
-		return expr_wrapper<func_log<constant>>
-			{func_log<constant>{constant{a}}};
+	func_log<constant> log(double a){
+		return func_log<constant>{constant{a}};
 	}
 	
-	inline auto log(int a) -> decltype(log(static_cast<double>(a))) {
+	auto log(int a) -> decltype(log(static_cast<double>(a))) {
 		return log(static_cast<double>(a));
 	}
-	*/
+	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Operator logic
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -208,7 +205,6 @@ namespace ctd {
 		}
 	};
 	
-	
 	// multiply
 	template <
 		class OperandA, 
@@ -226,15 +222,12 @@ namespace ctd {
 			return bin_op_inst::a.value(id, x) * bin_op_inst::b.value(id, x);
 		}
 		
-		// TODO: solve simplification. now it contains bug if we do so
-		template <typename = void>
 		double diff(int id, double x) const {
-			return bin_op_inst::a.diff(id, x) * bin_op_inst::b.value(id, x) 
-				+ bin_op_inst::a.value(id, x) * bin_op_inst::b.diff(id, x);
-		}
+		return bin_op_inst::a.diff(id, x) * bin_op_inst::b.value(id, x) 
+			+ bin_op_inst::a.value(id, x) * bin_op_inst::b.diff(id, x);
+	}
 	};
-		
-	/*
+	
 	// divide
 	template <
 		class OperandA, 
@@ -242,15 +235,18 @@ namespace ctd {
 		class bin_op_inst = binary_operator<OperandA, OperandB>
 	>
 	struct divide: binary_operator<OperandA, OperandB> {
-		divide(const OperandA &a, const OperandB &b)
+		
+		divide(const OperandA a, const OperandB b)
 		: bin_op_inst(a, b) {}
-		inline double value(double x) const {
-			return bin_op_inst::a.value(x) / bin_op_inst::b.value(x);
+		
+		double value(int id, double x) const {
+			return bin_op_inst::a.value(id, x) / bin_op_inst::b.value(id, x);
 		}
-		inline double diff(double x) const {
-			return (bin_op_inst::a.diff(x) * bin_op_inst::b.value(x) 
-					- bin_op_inst::a.value(x) * bin_op_inst::b.diff(x))
-				/ (bin_op_inst::b.value(x)*bin_op_inst::b.value(x));
+		
+		double diff(int id, double x) const {
+			return (bin_op_inst::a.diff(id, x) * bin_op_inst::b.value(id, x) 
+					- bin_op_inst::a.value(id, x) * bin_op_inst::b.diff(id, x))
+				/ (bin_op_inst::b.value(id, x)*bin_op_inst::b.value(id, x));
 		}
 	};
 	
@@ -260,21 +256,23 @@ namespace ctd {
 		class bin_op_inst = binary_operator<Base, Exponent>
 	>
 	struct exponential : bin_op_inst {
-		exponential(const Base &a, const Exponent &b)
+		
+		exponential(const Base a, const Exponent b)
 		: bin_op_inst(a, b) {}
-		inline double value(double x) const {
-			return std::pow(bin_op_inst::a.value(x), bin_op_inst::b.value(x));
+		
+		double value(int id, double x) const {
+			return std::pow(bin_op_inst::a.value(id, x), bin_op_inst::b.value(id, x));
 		}
-		inline double diff(double x) const {
+		
+		double diff(int id, double x) const {
 			// functional power rule
-			return value(x)*(
-				bin_op_inst::a.diff(x)
-					*((bin_op_inst::b.value(x))/(bin_op_inst::a.value(x))) 
-				+ bin_op_inst::b.diff(x)*std::log(bin_op_inst::a.value(x))
+			return value(id, x)*(
+				bin_op_inst::a.diff(id, x)
+					*((bin_op_inst::b.value(id, x))/(bin_op_inst::a.value(id, x))) 
+				+ bin_op_inst::b.diff(id, x)*std::log(bin_op_inst::a.value(id, x))
 			);
 		}
 	};
-	*/
 	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Unary negation sign - must be declared after operator logic section
@@ -284,12 +282,6 @@ namespace ctd {
 	struct negatable {
 		multiply<constant, ChildType> operator-() const;
 	};
-	
-	/*template <>
-	template <typename std::enable_if<false>::type* = nullptr>
-	double multiply<constant, unknown<1>>::diff(int id, double x) const {
-		return bin_op_inst::a.value(id, x);
-	}*/
 	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Operator syntax
@@ -308,36 +300,42 @@ namespace ctd {
 		class SubExprB,
 		class add_inst = add<SubExprA, SubExprB>,
 		typename std::enable_if<
-			!(std::is_pod<SubExprA>::value || std::is_pod<SubExprB>::value)
+			std::is_pod<SubExprA>::value == false && std::is_pod<SubExprB>::value == false
 		>::type* = nullptr
 	>
-	add_inst operator+(const SubExprA sea,const SubExprB seb){
+	add_inst operator+(const SubExprA sea, const SubExprB seb){
 		return add_inst{sea, seb};
 	}
 	
 	// const + expr
-	template<class SubExpr>
-	auto operator+(const constant c, const SubExpr se) 
-	-> add<constant, SubExpr>
+	template<
+		class SubExpr,
+		class add_inst = add<constant, SubExpr>
+	>
+	add_inst operator+(const constant c, const SubExpr se) 
 	{
-		return add<constant, SubExpr>{c, se};
+		return add_inst{c, se};
 	}
 	
-	/*
 	// expr + const
-	template<class SubExpr>
-	inline auto operator+(const expr_wrapper<SubExpr> &se, const constant &c)
-	-> decltype(expr_wrapper<constant>{c} + se)
+	template<
+		class SubExpr,
+		class add_inst = add<SubExpr, constant>
+	>
+	add_inst operator+(const SubExpr se, const constant c) 
 	{
-		return expr_wrapper<constant>{c} + se;
+		return add_inst{se, c};
 	}
 	
 	// expr - expr
-	template<class SubExprA, class SubExprB>
-	inline auto operator-(
-		const expr_wrapper<SubExprA> &sea,
-		const expr_wrapper<SubExprB> &seb
-	)
+	template<
+		class SubExprA, 
+		class SubExprB,
+		typename std::enable_if<
+			std::is_pod<SubExprA>::value == false && std::is_pod<SubExprB>::value == false
+		>::type* = nullptr
+	>
+	auto operator-(const SubExprA sea, const SubExprB seb)
 	-> decltype(sea + (-seb))
 	{
 		return sea + (-seb);
@@ -345,30 +343,30 @@ namespace ctd {
 	
 	// const - expr
 	template<class SubExpr>
-	inline auto operator-(const constant &c, const expr_wrapper<SubExpr> &se)
-	-> decltype(expr_wrapper<constant>{c} - se)
+	auto operator-(const constant c, const SubExpr se)
+	-> decltype(c - se)
 	{
-		return expr_wrapper<constant>{c} - se;
+		return c - se;
 	}
 	
 	// expr - const
 	template<class SubExpr>
-	inline auto operator-(const expr_wrapper<SubExpr> &se, const constant &c)
-	-> decltype(se - expr_wrapper<constant>{c})
+	auto operator-(const SubExpr se, const constant c)
+	-> decltype(se - c)
 	{
-		return se - expr_wrapper<constant>{c};
+		return se - c;
 	}
-	*/
+
 	// expr * expr
 	template<
 		class SubExprA,
 		class SubExprB,
 		class multiply_inst = multiply<SubExprA, SubExprB>,
 		typename std::enable_if<
-			std::is_class<SubExprA>::value && std::is_class<SubExprB>::value
+			std::is_pod<SubExprA>::value == false && std::is_pod<SubExprB>::value == false
 		>::type* = nullptr
 	>
-	inline multiply_inst operator*(
+	multiply_inst operator*(
 		const SubExprA sea, 
 		const SubExprB seb
 	){
@@ -376,117 +374,126 @@ namespace ctd {
 	}
 	
 	// const * expr
-	template<class SubExpr>
-	auto operator*(const constant c, const SubExpr se) 
-	-> multiply<constant, SubExpr>
+	template<
+		class SubExpr,
+		class multiply_inst = multiply<constant, SubExpr>
+	>
+	multiply_inst operator*(const constant c, const SubExpr se) 
 	{
-		return multiply<constant, SubExpr>{c, se};
+		return multiply_inst{c, se};
 	}
-	/*
+	
 	// expr * const 
-	template<class SubExpr>
-	inline auto operator*(const expr_wrapper<SubExpr> &se, const constant &c)
-	-> decltype(expr_wrapper<constant>{c} * se)
+	template<
+		class SubExpr,
+		class multiply_inst = multiply<SubExpr, constant>
+	>
+	multiply_inst operator*(const SubExpr se, const constant c)
 	{
-		return expr_wrapper<constant>{c} * se;
+		return multiply_inst{se, c};
 	}
 	
 	// expr / expr
 	template<
-		class SubExprA, class SubExprB,
-		class divide_inst = divide<
-			expr_wrapper<SubExprA>, expr_wrapper<SubExprB>
-		>
+		class SubExprA, 
+		class SubExprB,
+		class divide_inst = divide<SubExprA, SubExprB>,
+		typename std::enable_if<
+			std::is_pod<SubExprA>::value == false && std::is_pod<SubExprB>::value == false
+		>::type* = nullptr
 	>
-	inline expr_wrapper<divide_inst> operator/(
-		const expr_wrapper<SubExprA> &sea, 
-		const expr_wrapper<SubExprB> &seb
+	divide_inst operator/(const SubExprA sea, const SubExprB seb
 	){
-		return expr_wrapper<divide_inst>{divide_inst{sea, seb}};
+		return divide_inst{sea, seb};
 	}
 	
 	// const / expr
-	template<class SubExpr>
-	inline auto operator/(const constant &c, const expr_wrapper<SubExpr> &se)
-	-> decltype(expr_wrapper<constant>{c} / se)
+	template<
+		class SubExpr,
+		class divide_inst = divide<constant, SubExpr>
+	>
+	divide_inst operator/(const constant c, const SubExpr se)
 	{
-		return expr_wrapper<constant>{c} / se;
+		return divide_inst{c, se};
 	}
 	
 	// expr / const 
-	template<class SubExpr>
-	inline auto operator/(const expr_wrapper<SubExpr> &se, const constant &c)
-	-> decltype(expr_wrapper<constant>{c} / se)
+	template<
+		class SubExpr,
+		class divide_inst = divide<SubExpr, constant>
+	>
+	divide_inst operator/(const SubExpr se, const constant c)
 	{
-		return expr_wrapper<constant>{c} / se;
+		return divide_inst{se, c};
 	}
 	
 	// expr ^ expr
 	template<
 		class SubExprA, 
 		class SubExprB, 
-		class exponential_inst = exponential<
-			expr_wrapper<SubExprA>, 
-			expr_wrapper<SubExprB>
-		>
+		class exponential_inst = exponential<SubExprA, SubExprB>,
+		typename std::enable_if<
+			std::is_pod<SubExprA>::value == false && std::is_pod<SubExprB>::value == false
+		>::type* = nullptr
 	>
-	inline expr_wrapper<exponential_inst> operator^(
-		const expr_wrapper<SubExprA> &sea,
-		const expr_wrapper<SubExprB> &seb
-	){
-		return expr_wrapper<exponential_inst>{exponential_inst{sea, seb}};
+	exponential_inst operator^(const SubExprA sea, const SubExprB seb){
+		return exponential_inst{sea, seb};
 	}
 	
 	// const ^ expr
-	template<class SubExpr>
-	inline auto operator^(const constant &c, const expr_wrapper<SubExpr> &se)
-	-> decltype(expr_wrapper<constant>{c} ^ se)
+	template<
+		class SubExpr,
+		class exponential_inst = exponential<constant, SubExpr>
+	>
+	exponential_inst operator^(const constant c, const SubExpr se)
 	{
-		return expr_wrapper<constant>{c} ^ se;
+		return exponential_inst{c, se};
 	}
 	
 	// expr ^ const 
-	template<class SubExpr>
-	inline auto operator^(const expr_wrapper<SubExpr> &se, const constant &c)
-	-> decltype(se ^ expr_wrapper<constant>{c})
+	template<
+		class SubExpr,
+		class exponential_inst = exponential<SubExpr, constant>
+	>
+	exponential_inst operator^(const SubExpr se, const constant c)
 	{
-		return se ^ expr_wrapper<constant>{c};
-	}
-	*/
-	
-	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	// Syntactic sugar evaluation
-	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	
-	/*
-	template <class SubExpr>
-	struct diff_wrapper : expr_wrapper<SubExpr> {
-		diff_wrapper(const expr_wrapper<SubExpr> &cpy)
-		: expr_wrapper<SubExpr>{cpy} {}
-		inline double operator()(double x) const {
-			return expr_wrapper<SubExpr>::diff(x);
-		}
-	};
-	
-	struct sdx {} dx;
-	struct sdt {} dt;
-	struct sdxdt {} dxdt;
-	
-	inline sdxdt operator/(const sdx&, const sdt&){
-		return sdxdt{};
+		return exponential_inst{se, c};
 	}
 	
-	template<class SubExpr>
-	inline diff_wrapper<SubExpr> 
-	operator*(const expr_wrapper<SubExpr> &sea, const sdxdt&){
-		return diff_wrapper<SubExpr>{sea};
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	// Commands
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	template <
+		typename ExpressionTree,
+		typename std::enable_if<std::is_pod<ExpressionTree>::value == false>::type* = nullptr
+	>
+	double diff(ExpressionTree et, int id, double x){
+		return et.diff(id, x);
 	}
-	*/
 	
-	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	// Predefined expression types
-	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	template <
+		typename Constant, 
+		typename std::enable_if<std::is_pod<Constant>::value == true>::type* = nullptr
+	>
+	double diff(Constant c, int id, double x){
+		return 0;
+	}
 	
-	//expr_wrapper<unknown> x;
+	template <
+		typename ExpressionTree,
+		typename std::enable_if<std::is_pod<ExpressionTree>::value == false>::type* = nullptr
+	>
+	double value(ExpressionTree et, int id, double x){
+		return et.value(id, x);
+	}
+	
+	template <
+		typename Constant, 
+		typename std::enable_if<std::is_pod<Constant>::value == true>::type* = nullptr
+	>
+	double value(Constant c, int id, double x){
+		return c;
+	}
 	
 }
