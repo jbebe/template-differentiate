@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <sstream>
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 // http://stackoverflow.com/questions/10526950/symbolic-differentiation-using-expression-templates-in-c
 // // https://en.wikipedia.org/wiki/Differentiation_rules#Derivatives_of_trigonometric_functions
@@ -31,6 +34,23 @@ namespace ctd {
 		double diff(int, double) const {
 			return 0.0;
 		}
+		
+		std::string printValue(int) const {
+			if (std::abs(data - round(data)) < 1e-7){
+				// data is (almost) a whole numeber
+				return std::to_string(static_cast<long long>(round(data)));
+			}
+			else {
+				constexpr int tmpSize = 512;
+				char tmp[tmpSize];
+				snprintf(tmp, tmpSize-1, "%.3f", data);
+				return tmp;
+			}
+		}
+		
+		std::string printDiff(int) const {
+			return "0";
+		}
 	};
 	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -39,12 +59,14 @@ namespace ctd {
 	// so ternary is also compile time
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	
+	struct unknown_base {};
+	
 	template <int ID>
-	struct unknown: public negatable<unknown<ID>> {
+	struct unknown: public negatable<unknown<ID>>, unknown_base {
 		
 		const double data;
 		
-		unknown(double data): data{data} {}
+		unknown(double data = 0.): data{data} {}
 		
 		double value(int in_id, double x) const {
 			return in_id == ID ? x : data;
@@ -52,6 +74,14 @@ namespace ctd {
 		
 		double diff(int in_id, double) const {
 			return in_id == ID ? 1.0 : 0.0;
+		}
+		
+		std::string printValue(int) const {
+			return std::string{0, ID};
+		}
+		
+		std::string printDiff(int in_id) const {
+			return in_id == ID ? "1" : "0";
 		}
 	};
 	
@@ -73,13 +103,29 @@ namespace ctd {
 	// sin(f(x))
 	template <class SubExpr>
 	struct func_sin {
+		
 		const SubExpr arg;
+		
 		func_sin(const SubExpr arg): arg{arg} {}
-		inline double value(int id, double x) const {
+		
+		double value(int id, double x) const {
 			return std::sin(arg.value(id, x));
 		}
-		inline double diff(int id, double x) const {
+		
+		double diff(int id, double x) const {
 			return std::cos(arg.value(id, x)) * arg.diff(id, x);
+		}
+		
+		std::string printValue(int id) const {
+			std::stringstream ss;
+			ss << "sin(" << arg.printValue(id) << ")";
+			return ss.str();
+		}
+		
+		std::string printDiff(int id) const {
+			std::stringstream ss;
+			ss << "cos(" << arg.printValue(id) << ")*(" << arg.printDiff(id) << ")";
+			return ss.str();
 		}
 	};
 	
@@ -116,6 +162,18 @@ namespace ctd {
 		double diff(int id, double x) const {
 			return (-std::sin(arg.value(id, x))) * arg.diff(id, x);
 		}
+		
+		std::string printValue(int id) const {
+			std::stringstream ss;
+			ss << "cos(" << arg.print(id) << ")";
+			return ss.str();
+		}
+		
+		std::string printDiff(int id) const {
+			std::stringstream ss;
+			ss << "-sin(" << arg.printValue(id) << ")*(" << arg.printDiff(id) << ")";
+			return ss.str();
+		}
 	};
 	
 	template <
@@ -137,13 +195,29 @@ namespace ctd {
 	// log(f(x))
 	template <class SubExpr>
 	struct func_log {
+		
 		const SubExpr arg;
+		
 		func_log(const SubExpr arg): arg{arg} {}
+		
 		double value(int id, double x) const {
 			return std::log(arg.value(id, x));
 		}
+		
 		double diff(int id, double x) const {
 			return arg.diff(id, x)/arg.value(id, x);
+		}
+		
+		std::string printValue(int id) const {
+			std::stringstream ss;
+			ss << "log(" << arg.print(id) << ")";
+			return ss.str();
+		}
+		
+		std::string printDiff(int id) const {
+			std::stringstream ss;
+			ss << "(" << arg.printDiff(id) << ")/(" << arg.printValue(id) << ")";
+			return ss.str();
 		}
 	};
 	
@@ -203,6 +277,18 @@ namespace ctd {
 		double diff(int id, double x) const {
 			return bin_op_inst::a.diff(id, x) + bin_op_inst::b.diff(id, x);
 		}
+		
+		std::string printValue(int id) const {
+			std::stringstream ss;
+			ss << "(" << bin_op_inst::a.print(id) << ")+(" << bin_op_inst::b.print(id) << ")";
+			return ss.str();
+		}
+		
+		std::string printDiff(int id) const {
+			std::stringstream ss;
+			ss << "(" << bin_op_inst::a.printDiff(id) << ")+(" << bin_op_inst::b.printDiff(id) << ")";
+			return ss.str();
+		}
 	};
 	
 	// multiply
@@ -223,9 +309,24 @@ namespace ctd {
 		}
 		
 		double diff(int id, double x) const {
-		return bin_op_inst::a.diff(id, x) * bin_op_inst::b.value(id, x) 
+			return bin_op_inst::a.diff(id, x) * bin_op_inst::b.value(id, x) 
 			+ bin_op_inst::a.value(id, x) * bin_op_inst::b.diff(id, x);
-	}
+		}
+		
+		std::string printValue(int id) const {
+			std::stringstream ss;
+			ss << "(" << bin_op_inst::a.printValue(id) << ")*(" << bin_op_inst::b.printValue(id) << ")";
+			return ss.str();
+		}
+		
+		std::string printDiff(int id) const {
+			std::stringstream ss;
+			ss << "((" << bin_op_inst::a.printDiff(id) << ")*(" 
+				<< bin_op_inst::b.printValue(id) << ")+(" 
+				<< bin_op_inst::a.printValue(id) << ")*(" 
+				<< bin_op_inst::b.printDiff(id) << "))";
+			return ss.str();
+		}
 	};
 	
 	// divide
@@ -247,6 +348,23 @@ namespace ctd {
 			return (bin_op_inst::a.diff(id, x) * bin_op_inst::b.value(id, x) 
 					- bin_op_inst::a.value(id, x) * bin_op_inst::b.diff(id, x))
 				/ (bin_op_inst::b.value(id, x)*bin_op_inst::b.value(id, x));
+		}
+		
+		std::string printValue(int id) const {
+			std::stringstream ss;
+			ss << "(" << bin_op_inst::a.print() << ")/(" << bin_op_inst::b.print() << ")";
+			return ss.str();
+		}
+		
+		std::string printDiff(int id) const {
+			std::stringstream ss;
+			ss << "(((" << bin_op_inst::a.printDiff(id) << ")*(" 
+				<< bin_op_inst::b.printValue(id) << ")-(" 
+				<< bin_op_inst::a.printValue(id) << ")*(" 
+				<< bin_op_inst::b.printDiff(id) << "))/((" 
+				<< bin_op_inst::b.printValue(id) << ")*(" 
+				<< bin_op_inst::b.printValue(id) << ")))";
+			return ss.str();
 		}
 	};
 	
@@ -271,6 +389,23 @@ namespace ctd {
 					*((bin_op_inst::b.value(id, x))/(bin_op_inst::a.value(id, x))) 
 				+ bin_op_inst::b.diff(id, x)*std::log(bin_op_inst::a.value(id, x))
 			);
+		}
+		
+		std::string printValue(int id) const {
+			std::stringstream ss;
+			ss << "(" << bin_op_inst::a.print() << ")^(" << bin_op_inst::b.print() << ")";
+			return ss.str();
+		}
+		
+		std::string printDiff(int id) const {
+			std::stringstream ss;
+			ss << "((" << printValue(id) << ")*((" 
+				<< bin_op_inst::a.printDiff(id) << ")*((" 
+				<< bin_op_inst::b.printValue(id) << ")/(" 
+				<< bin_op_inst::a.printValue(id) << "))+((" 
+				<< bin_op_inst::b.printDiff(id) << ")*(log(" 
+				<< bin_op_inst::a.printValue(id) << "))))";
+			return ss.str();
 		}
 	};
 	
@@ -495,5 +630,15 @@ namespace ctd {
 	double value(Constant c, int id, double x){
 		return c;
 	}
+	
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	// Predefs
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+#ifndef CTD_NO_PREDEF_SYMS
+	auto x = symbol<'x'>::value{};
+	auto y = symbol<'y'>::value{};
+	auto z = symbol<'z'>::value{};
+#endif
 	
 }

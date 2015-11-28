@@ -40,40 +40,37 @@ int main(int argc, char** argv) {
     
 	// using the namespace for shorter code
 	using namespace ctd;
-	
-	// define symbolic variables 
-	auto x = symbol<1>::value{10};
-	auto y = symbol<2>::value{11};
-	auto z = symbol<3>::value{12};
-	
-	TEST(    x,  1, 5,   6, std::cout);
-	TEST(    x,  2, 5, 6.1, std::cout);
-	TEST(1 + x,  1, 5, 6.1, std::cout);
-	TEST(x + 1,  1, 5, 6.1, std::cout);
-	TEST(2 * x,  1, 5, 6.1, std::cout);
-	TEST(x * 2,  1, 5, 6.1, std::cout);
-	TEST(x * x,  1, 5, 6.1, std::cout);
-	TEST(1 / x,  1, 5, 6.1, std::cout);
-	TEST(x / 1,  1, 5, 6.1, std::cout);
-	TEST(x / x,  1, 5, 6.1, std::cout);
-	TEST(x ^ 2,  1, 5, 6.1, std::cout);
-	TEST(2 ^ x,  1, 5, 6.1, std::cout);
-	TEST(x ^ x,  1, 5, 6.1, std::cout);
-	TEST(sin(x), 1, 5, 6.1, std::cout);
-	TEST(cos(x), 1, 5, 6.1, std::cout);
-	TEST(log(x), 1, 5, 6.1, std::cout);
+
+	TEST(    x,  'x', 5,   6, std::cout);
+	TEST(    x,  'y', 5, 6.1, std::cout);
+	TEST(1 + x,  'x', 5, 6.1, std::cout);
+	TEST(x + 1,  'x', 5, 6.1, std::cout);
+	TEST(2 * x,  'x', 5, 6.1, std::cout);
+	TEST(x * 2,  'x', 5, 6.1, std::cout);
+	TEST(x * x,  'x', 5, 6.1, std::cout);
+	TEST(1 / x,  'x', 5, 6.1, std::cout);
+	TEST(x / 1,  'x', 5, 6.1, std::cout);
+	TEST(x / x,  'x', 5, 6.1, std::cout);
+	TEST(x ^ 2,  'x', 5, 6.1, std::cout);
+	TEST(2 ^ x,  'x', 5, 6.1, std::cout);
+	TEST(x ^ x,  'x', 5, 6.1, std::cout);
+	TEST(sin(x), 'x', 5, 6.1, std::cout);
+	TEST(cos(x), 'x', 5, 6.1, std::cout);
+	TEST(log(x), 'x', 5, 6.1, std::cout);
 	
 	TEST((sin(cos(log((((((2 * (((1 + x) + 1) * 2)) * x) / x) ^ 2) ^ x))))), 
-		1, 5, 6.1, std::cout);
-	
-	auto sample_tree = sin(cos(log((((((2 * (((1 + x) + 1) * 2)) * x) / x) ^ 2) ^ x))));
+		'x', 5, 6.1, std::cout);
 	
 	// get the expression template tree
+	auto sample_tree = sin(cos(log((((((2 * (((1 + x) + 1) * 2)) * x) / x) ^ 2) ^ x))));
     std::cout << "expression tree: " << std::endl;
     const char *type_ptr = abi::__cxa_demangle(typeid(sample_tree).name(), 0, 0, NULL);
-	
-	// and print it out in a fancy form (implementation is ugly though)
 	std::cout << type_ptr << std::endl;
+	
+	// fancy print:
+	auto print_expr = sin(2*x);
+	std::cout << "fancy print tree: " << print_expr.printValue('x') << std::endl;
+	std::cout << "fancy print derivative: " << print_expr.printDiff('x') << std::endl;
 
     return 0;
 }
