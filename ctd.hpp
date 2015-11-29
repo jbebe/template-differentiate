@@ -15,6 +15,7 @@ namespace ctd {
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	
 	template <typename ChildType> struct negatable;
+	template <class, class> struct multiply;
 	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// constant class - actual literals in expression tree
@@ -95,6 +96,15 @@ namespace ctd {
 	struct symbol {
 		using value = unknown<ID>;
 	};
+	
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	// Unary negation sign - must be declared after operator logic section
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+	
+	template <typename ChildType>
+	struct negatable {
+		multiply<constant, ChildType> operator-() const;
+	};
 
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	// Function
@@ -102,7 +112,7 @@ namespace ctd {
 	
 	// sin(f(x))
 	template <class SubExpr>
-	struct func_sin {
+	struct func_sin: negatable<func_sin<SubExpr>> {
 		
 		const SubExpr arg;
 		
@@ -149,7 +159,7 @@ namespace ctd {
 	
 	// cos(f(x))
 	template <class SubExpr>
-	struct func_cos {
+	struct func_cos: negatable<func_cos<SubExpr>> {
 
 		const SubExpr arg;
 
@@ -194,7 +204,7 @@ namespace ctd {
 
 	// log(f(x))
 	template <class SubExpr>
-	struct func_log {
+	struct func_log: negatable<func_log<SubExpr>> {
 		
 		const SubExpr arg;
 		
@@ -262,7 +272,7 @@ namespace ctd {
 		class OperandA, 
 		class OperandB
 	>
-	struct add: public binary_operator<OperandA, OperandB>, public negatable<add<OperandA, OperandB>> {
+	struct add: binary_operator<OperandA, OperandB>, negatable<add<OperandA, OperandB>> {
 		
 		using bin_op_inst = binary_operator<OperandA, OperandB>;
 		
@@ -296,7 +306,7 @@ namespace ctd {
 		class OperandA, 
 		class OperandB
 	>
-	struct multiply: public binary_operator<OperandA, OperandB>, public negatable<multiply<OperandA, OperandB>> {
+	struct multiply: binary_operator<OperandA, OperandB>, negatable<multiply<OperandA, OperandB>> {
 		
 		using bin_op_inst = binary_operator<OperandA, OperandB>;
 		
@@ -332,10 +342,11 @@ namespace ctd {
 	// divide
 	template <
 		class OperandA, 
-		class OperandB,
-		class bin_op_inst = binary_operator<OperandA, OperandB>
+		class OperandB
 	>
-	struct divide: binary_operator<OperandA, OperandB> {
+	struct divide: binary_operator<OperandA, OperandB>, negatable<divide<OperandA, OperandB>> {
+		
+		using bin_op_inst = binary_operator<OperandA, OperandB>;
 		
 		divide(const OperandA a, const OperandB b)
 		: bin_op_inst(a, b) {}
@@ -370,10 +381,12 @@ namespace ctd {
 	
 	// exponential
 	template <
-		class Base, class Exponent, 
-		class bin_op_inst = binary_operator<Base, Exponent>
+		class Base, 
+		class Exponent
 	>
-	struct exponential : bin_op_inst {
+	struct exponential : binary_operator<Base, Exponent>, negatable<exponential<Base, Exponent>> {
+		
+		using bin_op_inst = binary_operator<Base, Exponent>;
 		
 		exponential(const Base a, const Exponent b)
 		: bin_op_inst(a, b) {}
@@ -407,15 +420,6 @@ namespace ctd {
 				<< bin_op_inst::a.printValue(id) << "))))";
 			return ss.str();
 		}
-	};
-	
-	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	// Unary negation sign - must be declared after operator logic section
-	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	
-	template <typename ChildType>
-	struct negatable {
-		multiply<constant, ChildType> operator-() const;
 	};
 	
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
